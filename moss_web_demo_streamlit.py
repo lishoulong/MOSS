@@ -1,7 +1,7 @@
 import argparse
 import os
 import time
-
+import logging
 import streamlit as st
 import torch
 from accelerate import init_empty_weights, load_checkpoint_and_dispatch
@@ -45,21 +45,29 @@ max_time = st.sidebar.slider('Maximum waiting time (seconds)', min_value=10, max
 
 @st.cache_resource
 def load_model():
+   logging.info(f'load_model 1')
    config = MossConfig.from_pretrained(args.model_name)
+   logging.info(f'load_model config {config}')
    tokenizer = MossTokenizer.from_pretrained(args.model_name)
-   if num_gpus > 1:  
+   logging.info(f'load_model tokenizer {tokenizer}')
+   if num_gpus > 1:
       model_path = args.model_name
+      logging.info(f'load_model model_path: {model_path}')
       if not os.path.exists(args.model_name):
          model_path = snapshot_download(args.model_name)
       print("Waiting for all devices to be ready, it may take a few minutes...")
       with init_empty_weights():
          raw_model = MossForCausalLM._from_config(config, torch_dtype=torch.float16)
       raw_model.tie_weights()
+      logging.info(f'load_model raw_model {raw_model}')
       model = load_checkpoint_and_dispatch(
          raw_model, model_path, device_map="auto", no_split_module_classes=["MossBlock"], dtype=torch.float16
       )
+      logging.info(f'load_model model {model}')
    else: # on a single gpu
+      logging.info(f'load_model single gpu')
       model = MossForCausalLM.from_pretrained(args.model_name).half().cuda()
+      logging.info(f'load_model after model {model}')
    
    return tokenizer, model
 
